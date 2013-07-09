@@ -4,7 +4,7 @@ var fs = require('fs');
 var app = express.createServer(express.logger());
 
 var buff = fs.readFile('./index.html');
-var message = buff.toString();
+var message = buff.toString('utf-8');
 
 app.get('/', function(request, response) {
   response.send(message);
