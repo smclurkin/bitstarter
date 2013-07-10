@@ -24,7 +24,9 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var rest = require('restler');
 var HTMLFILE_DEFAULT = "index.html";
+var URL_DEFAULT = "http://localhost:8080/index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
 
 var assertFileExists = function(infile) {
@@ -36,8 +38,35 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
+var assertUrlExists = function(url) {
+    var instr = url.toString();
+
+    rest.head(instr).on('complete', function(result) {
+      if (result instanceof Error) {
+        console.log("%s does not exist. Exiting.", instr);
+        process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
+      }
+    });
+    return instr;
+};
+
+var getHtmlPage = function(url) {
+    
+    var instr = url.toString();
+
+    rest.get(instr).on('complete', function(result) {
+      if (result instanceof Error) {
+        console.log("Unable to read page %s. Exiting.", instr);
+        process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
+      } else {
+        return result;
+      }
+      
+    });
+};
+
 var cheerioHtmlFile = function(htmlfile) {
-    return cheerio.load(fs.readFileSync(htmlfile));
+    return cheerio.load(htmlfile);
 };
 
 var loadChecks = function(checksfile) {
@@ -65,8 +94,18 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <html_url>', 'url to to check', clone(assertUrlExists), URL_DEFAULT)
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
+    
+    var htmlfile = "";
+
+    if (program.file) {
+      var htmlfile = fs.readFileSync(program.file);
+    } else if (program.url) {
+      var htmlfile = getHtmlPage(program.url);
+    }
+
+    var checkJson = checkHtmlFile(htmlfile, program.checks); 
     var outJson = JSON.stringify(checkJson, null, 4);
     console.log(outJson);
 } else {
